@@ -1,0 +1,345 @@
+// Personal Operations Platform — core data model.
+// SQLite for local-first single-user use; designed to migrate to Postgres later
+// without structural changes (see docs/architecture.md).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Projects & Tasks
+// ---------------------------------------------------------------------------
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  color       String        @default("#6366f1")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  completedAt DateTime?
+
+  tasks           Task[]
+  deadlines       Deadline[]
+  integrations    Integration[]
+  componentUsages ComponentUsage[]
+  knowledgeItems  KnowledgeItem[]
+  activities      Activity[]
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  WAITING
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Task {
+  id               String       @id @default(cuid())
+  title            String
+  description      String?
+  status           TaskStatus   @default(TODO)
+  priority         TaskPriority @default(NORMAL)
+  category         String?
+  tags             String       @default("[]") // JSON string array
+  dueDate          DateTime?
+  dueTime          String?
+  recurrence       String?
+  estimatedMinutes Int?
+  checklist        String       @default("[]") // JSON [{id,label,done}]
+  attachments      String       @default("[]") // JSON [{id,name,url}]
+  links            String       @default("[]") // JSON [{id,label,url}]
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  completedAt      DateTime?
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  timeEntries TimeEntry[]
+  activities  Activity[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model TimeEntry {
+  id              String    @id @default(cuid())
+  taskId          String
+  task            Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  startedAt       DateTime
+  endedAt         DateTime?
+  durationSeconds Int?
+  note            String?
+  createdAt       DateTime  @default(now())
+
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Monitor de prazos (deadlines)
+// ---------------------------------------------------------------------------
+
+enum DeadlineType {
+  API
+  TOKEN
+  DOMAIN
+  HOSTING
+  SSL
+  LICENSE
+  SUBSCRIPTION
+  CONTRACT
+  INTEGRATION
+  CREDENTIAL
+  SERVICE
+  DOCUMENT
+  OTHER
+}
+
+model Deadline {
+  id          String       @id @default(cuid())
+  name        String
+  type        DeadlineType @default(OTHER)
+  description String?
+  dueAt       DateTime
+  url         String?
+  responsible String?
+  notes       String?
+  periodicity String? // e.g. "monthly", "yearly", null = one-off
+  renewalDate DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+  @@index([dueAt])
+}
+
+// ---------------------------------------------------------------------------
+// Integrações
+// ---------------------------------------------------------------------------
+
+enum IntegrationStatus {
+  CONNECTED
+  ATTENTION
+  ERROR
+  DISABLED
+}
+
+model Integration {
+  id          String            @id @default(cuid())
+  name        String
+  category    String?
+  status      IntegrationStatus @default(CONNECTED)
+  url         String?
+  docsUrl     String?
+  notes       String?
+  lastSyncAt  DateTime?
+  nextCheckAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Biblioteca de componentes
+// ---------------------------------------------------------------------------
+
+enum ComponentKind {
+  COMPONENT
+  SECTION
+  TEMPLATE
+}
+
+model Component {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  kind        ComponentKind @default(COMPONENT)
+  category    String?
+  technology  String?
+  tags        String        @default("[]") // JSON string array
+  favorite    Boolean       @default(false)
+  origin      String?
+  originUrl   String?
+  previewUrl  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  versions ComponentVersion[]
+  usages   ComponentUsage[]
+}
+
+model ComponentVersion {
+  id          String    @id @default(cuid())
+  componentId String
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  version     String
+  code        String
+  language    String?
+  isCurrent   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  usages ComponentUsage[]
+
+  @@index([componentId])
+}
+
+model ComponentUsage {
+  id          String            @id @default(cuid())
+  componentId String
+  component   Component         @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  versionId   String?
+  version     ComponentVersion? @relation(fields: [versionId], references: [id])
+  projectId   String
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  note        String?
+  usedAt      DateTime          @default(now())
+
+  @@index([componentId])
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Conhecimento
+// ---------------------------------------------------------------------------
+
+enum KnowledgeType {
+  DOC
+  PROCESS
+  TUTORIAL
+  CHECKLIST
+  PROMPT
+  NOTE
+  LINK
+  REFERENCE
+}
+
+model KnowledgeItem {
+  id        String        @id @default(cuid())
+  title     String
+  content   String
+  type      KnowledgeType @default(NOTE)
+  tags      String        @default("[]") // JSON string array
+  links     String        @default("[]") // JSON [{label,url}]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Atividade, notificações, eventos, webhooks (ecossistema Hermes)
+// ---------------------------------------------------------------------------
+
+model Activity {
+  id          String   @id @default(cuid())
+  type        String // e.g. "task.completed", "project.created"
+  title       String
+  description String?
+  entityType  String? // "task" | "project" | "component" | "integration" | ...
+  entityId    String?
+  createdAt   DateTime @default(now())
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id])
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  TASK_OVERDUE
+  DEADLINE_UPCOMING
+  INTEGRATION_ERROR
+  PROJECT_STALLED
+  HERMES_EVENT
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType @default(SYSTEM)
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+}
+
+model Event {
+  id                String    @id @default(cuid())
+  type              String // e.g. "deadline.expiring", "task.created"
+  payload           String // JSON
+  createdAt         DateTime  @default(now())
+  deliveredToHermes Boolean   @default(false)
+  deliveredAt       DateTime?
+
+  @@index([type])
+  @@index([deliveredToHermes])
+}
+
+model Webhook {
+  id              String    @id @default(cuid())
+  name            String
+  url             String
+  secret          String?
+  active          Boolean   @default(true)
+  eventTypes      String    @default("[]") // JSON string array
+  createdAt       DateTime  @default(now())
+  lastTriggeredAt DateTime?
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String // JSON
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Hermes API clients (auth for the external agent)
+// ---------------------------------------------------------------------------
+
+model ApiClient {
+  id         String    @id @default(cuid())
+  name       String // e.g. "Hermes"
+  tokenHash  String // hashed API key, never store plaintext
+  lastSeenAt DateTime?
+  createdAt  DateTime  @default(now())
+  active     Boolean   @default(true)
+}
