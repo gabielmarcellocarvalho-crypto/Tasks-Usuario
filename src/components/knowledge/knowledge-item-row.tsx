@@ -21,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatDateFull } from "@/lib/format";
 import { KNOWLEDGE_TYPE_LABEL, KNOWLEDGE_TYPES } from "@/lib/knowledge-meta";
 import type { KnowledgeType } from "@/generated/prisma/client";
@@ -64,24 +65,48 @@ export function KnowledgeItemRow({
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3.5 text-left transition-colors hover:border-border/80"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="min-w-0 truncate text-sm font-medium">{item.title}</h3>
-          <Badge variant="outline" className="shrink-0 text-[10px]">
-            {KNOWLEDGE_TYPE_LABEL[item.type]}
-          </Badge>
+      <div className="group relative">
+        <button
+          onClick={() => setOpen(true)}
+          className="flex w-full flex-col gap-1.5 rounded-lg border border-border bg-card p-3.5 text-left transition-colors hover:border-border/80"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="min-w-0 truncate pr-6 text-sm font-medium">{item.title}</h3>
+            <Badge variant="outline" className="shrink-0 text-[10px]">
+              {KNOWLEDGE_TYPE_LABEL[item.type]}
+            </Badge>
+          </div>
+          <p className="line-clamp-2 text-xs text-muted-foreground">
+            {item.content || "Sem conteúdo ainda."}
+          </p>
+          <div className="mt-auto flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{item.projectName ?? "Sem projeto"}</span>
+            <span>{formatDateFull(item.updatedAt)}</span>
+          </div>
+        </button>
+        <div className="absolute -right-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="secondary"
+                  size="icon-sm"
+                  disabled={pending}
+                  className="shadow-sm"
+                  onClick={() =>
+                    startTransition(async () => {
+                      await deleteKnowledgeItem(item.id);
+                    })
+                  }
+                />
+              }
+            >
+              <Trash2 className="size-3.5" />
+            </TooltipTrigger>
+            <TooltipContent>Excluir documento</TooltipContent>
+          </Tooltip>
         </div>
-        <p className="line-clamp-2 text-xs text-muted-foreground">
-          {item.content || "Sem conteúdo ainda."}
-        </p>
-        <div className="mt-auto flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>{item.projectName ?? "Sem projeto"}</span>
-          <span>{formatDateFull(item.updatedAt)}</span>
-        </div>
-      </button>
+      </div>
 
       <Dialog open={open} onOpenChange={closeDialog}>
         <DialogContent className="sm:max-w-xl">

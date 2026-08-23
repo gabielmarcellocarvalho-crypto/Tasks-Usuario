@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Play, Square } from "lucide-react";
+import { Play, Square, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { formatClock, formatDate } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/task-meta";
 import type { TaskPriority } from "@/generated/prisma/client";
-import { toggleTaskDone, startTimer, stopTimer } from "@/app/(app)/tarefas/actions";
+import { toggleTaskDone, startTimer, stopTimer, deleteTask } from "@/app/(app)/tarefas/actions";
 
 export type TaskRowData = {
   id: string;
@@ -75,6 +75,23 @@ export function TaskRow({ task }: { task: TaskRowData }) {
       </Badge>
 
       <TimerButton taskId={task.id} runningEntry={task.runningEntry} disabled={done} />
+
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              disabled={pending}
+              className="shrink-0"
+              onClick={() => startTransition(async () => { await deleteTask(task.id); })}
+            />
+          }
+        >
+          <Trash2 className="size-3.5" />
+        </TooltipTrigger>
+        <TooltipContent>Excluir tarefa</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

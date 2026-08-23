@@ -8,6 +8,7 @@ import { TaskRow, type TaskRowData } from "@/components/tasks/task-row";
 import { CreateTaskDialog } from "@/components/tasks/create-task-dialog";
 import { ActivityList } from "@/components/activity/activity-list";
 import { ProjectStatusMenu } from "@/components/projects/project-status-menu";
+import { DeleteProjectDetailButton } from "@/components/projects/delete-project-detail-button";
 import { PROJECT_STATUS_META } from "@/lib/project-meta";
 import { formatDateFull, formatDuration, startOfDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -86,7 +87,10 @@ export default async function ProjectDetailPage({
               {statusMeta.label}
             </Badge>
           </div>
-          <ProjectStatusMenu projectId={project.id} currentStatus={project.status} />
+          <div className="flex items-center gap-2">
+            <ProjectStatusMenu projectId={project.id} currentStatus={project.status} />
+            <DeleteProjectDetailButton projectId={project.id} />
+          </div>
         </div>
         {project.description ? (
           <p className="max-w-2xl text-sm text-muted-foreground">{project.description}</p>

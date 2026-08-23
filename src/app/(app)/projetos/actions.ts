@@ -59,3 +59,21 @@ export async function updateProjectStatus(projectId: string, status: ProjectStat
   revalidatePath("/");
   return project;
 }
+
+export async function deleteProject(projectId: string) {
+  const project = await db.project.findUniqueOrThrow({ where: { id: projectId } });
+
+  // Tasks, deadlines, integrations and knowledge items linked to this
+  // project are kept — they just lose the project reference (FK is
+  // ON DELETE SET NULL) instead of being destroyed along with it.
+  await logActivity({
+    type: "project.deleted",
+    title: `Projeto excluído: ${project.name}`,
+    entityType: "project",
+  });
+
+  await db.project.delete({ where: { id: projectId } });
+
+  revalidatePath("/projetos");
+  revalidatePath("/");
+}

@@ -20,15 +20,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { GripVertical, MoreHorizontal } from "lucide-react";
+import { GripVertical, MoreHorizontal, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { PRIORITY_META, STATUS_COLUMNS, STATUS_META } from "@/lib/task-meta";
 import type { TaskPriority, TaskStatus } from "@/generated/prisma/client";
-import { updateTaskStatus } from "@/app/(app)/tarefas/actions";
+import { updateTaskStatus, deleteTask } from "@/app/(app)/tarefas/actions";
 
 type KanbanTask = {
   id: string;
@@ -56,6 +57,13 @@ export function KanbanBoard({ tasks: initialTasks }: { tasks: KanbanTask[] }) {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
     startTransition(async () => {
       await updateTaskStatus(taskId, status);
+    });
+  }
+
+  function removeTask(taskId: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    startTransition(async () => {
+      await deleteTask(taskId);
     });
   }
 
@@ -90,11 +98,14 @@ export function KanbanBoard({ tasks: initialTasks }: { tasks: KanbanTask[] }) {
             status={status}
             tasks={tasks.filter((t) => t.status === status)}
             onMove={moveTask}
+            onDelete={removeTask}
           />
         ))}
       </div>
       <DragOverlay>
-        {activeTask ? <KanbanCard task={activeTask} onMove={moveTask} overlay /> : null}
+        {activeTask ? (
+          <KanbanCard task={activeTask} onMove={moveTask} onDelete={removeTask} overlay />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );
@@ -104,10 +115,12 @@ function KanbanColumn({
   status,
   tasks,
   onMove,
+  onDelete,
 }: {
   status: TaskStatus;
   tasks: KanbanTask[];
   onMove: (taskId: string, status: TaskStatus) => void;
+  onDelete: (taskId: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -125,7 +138,7 @@ function KanbanColumn({
       </div>
       <div className="flex flex-col gap-2">
         {tasks.map((task) => (
-          <KanbanCard key={task.id} task={task} onMove={onMove} />
+          <KanbanCard key={task.id} task={task} onMove={onMove} onDelete={onDelete} />
         ))}
         {tasks.length === 0 ? (
           <div className="rounded-md border border-dashed border-border/60 px-2 py-4 text-center text-xs text-muted-foreground">
@@ -140,10 +153,12 @@ function KanbanColumn({
 function KanbanCard({
   task,
   onMove,
+  onDelete,
   overlay = false,
 }: {
   task: KanbanTask;
   onMove: (taskId: string, status: TaskStatus) => void;
+  onDelete: (taskId: string) => void;
   overlay?: boolean;
 }) {
   const priority = PRIORITY_META[task.priority];
@@ -197,6 +212,11 @@ function KanbanCard({
                 Mover para {STATUS_META[s].label}
               </DropdownMenuItem>
             ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => onDelete(task.id)}>
+              <Trash2 className="size-3.5" />
+              Excluir tarefa
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
