@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { logActivity } from "@/lib/activity";
-import { savePreviewImage } from "@/lib/upload";
+import { imageToDataUrl } from "@/lib/upload";
 import { ComponentKind } from "@/generated/prisma/client";
 
 const createComponentSchema = z.object({
@@ -46,7 +46,7 @@ export async function createComponent(formData: FormData) {
   const previewImage = formData.get("previewImage");
   const previewUrl =
     previewImage instanceof File && previewImage.size > 0
-      ? await savePreviewImage(previewImage, "components")
+      ? await imageToDataUrl(previewImage)
       : undefined;
 
   const component = await db.component.create({
@@ -111,7 +111,7 @@ export async function updateComponent(formData: FormData) {
   const previewImage = formData.get("previewImage");
   const previewUrl =
     previewImage instanceof File && previewImage.size > 0
-      ? await savePreviewImage(previewImage, "components")
+      ? await imageToDataUrl(previewImage)
       : undefined;
 
   await db.component.update({

@@ -46,6 +46,3 @@ next-env.d.ts
 *.db
 *.db-journal
 
-# user-uploaded content (local files, not versioned)
-/public/uploads
-
