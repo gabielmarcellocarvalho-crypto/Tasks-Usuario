@@ -17,7 +17,7 @@ export default function ConfiguracoesPage() {
           <dt className="text-muted-foreground">Versão</dt>
           <dd>0.1.0</dd>
           <dt className="text-muted-foreground">Banco de dados</dt>
-          <dd>SQLite (local)</dd>
+          <dd>PostgreSQL (Prisma Postgres)</dd>
           <dt className="text-muted-foreground">Integração</dt>
           <dd>Hermes via API REST + tokens</dd>
         </dl>
