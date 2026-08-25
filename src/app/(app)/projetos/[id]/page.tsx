@@ -128,7 +128,9 @@ export default async function ProjectDetailPage({
               Nenhuma tarefa neste projeto ainda.
             </div>
           ) : (
-            rows.map((task) => <TaskRow key={task.id} task={task} />)
+            rows.map((task) => (
+              <TaskRow key={task.id} task={task} projects={[{ id: project.id, name: project.name }]} />
+            ))
           )}
         </TabsContent>
 

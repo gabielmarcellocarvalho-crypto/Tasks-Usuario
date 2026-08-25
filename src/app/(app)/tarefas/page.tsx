@@ -84,11 +84,11 @@ export default async function TarefasPage({
               Nenhuma tarefa por aqui.
             </div>
           ) : (
-            rows.map((task) => <TaskRow key={task.id} task={task} />)
+            rows.map((task) => <TaskRow key={task.id} task={task} projects={projects} />)
           )}
         </TabsContent>
         <TabsContent value="kanban" className="pt-3">
-          <KanbanBoard tasks={rows} />
+          <KanbanBoard tasks={rows} projects={projects} />
         </TabsContent>
       </Tabs>
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { Play, Square, Trash2 } from "lucide-react";
+import { Pencil, Play, Square, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { formatClock, formatDate } from "@/lib/format";
 import { PRIORITY_META } from "@/lib/task-meta";
 import type { TaskPriority } from "@/generated/prisma/client";
 import { toggleTaskDone, startTimer, stopTimer, deleteTask } from "@/app/(app)/tarefas/actions";
+import { EditTaskDialog } from "@/components/tasks/edit-task-dialog";
 
 export type TaskRowData = {
   id: string;
@@ -25,9 +26,16 @@ export type TaskRowData = {
   runningEntry: { id: string; startedAt: string } | null;
 };
 
-export function TaskRow({ task }: { task: TaskRowData }) {
+export function TaskRow({
+  task,
+  projects = [],
+}: {
+  task: TaskRowData;
+  projects?: { id: string; name: string }[];
+}) {
   const [pending, startTransition] = useTransition();
   const [done, setDone] = useState(task.done);
+  const [editOpen, setEditOpen] = useState(false);
   const priority = PRIORITY_META[task.priority];
 
   return (
@@ -82,6 +90,22 @@ export function TaskRow({ task }: { task: TaskRowData }) {
             <Button
               variant="ghost"
               size="icon-sm"
+              className="shrink-0"
+              onClick={() => setEditOpen(true)}
+            />
+          }
+        >
+          <Pencil className="size-3.5" />
+        </TooltipTrigger>
+        <TooltipContent>Editar tarefa</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="icon-sm"
               disabled={pending}
               className="shrink-0"
               onClick={() => startTransition(async () => { await deleteTask(task.id); })}
@@ -92,6 +116,8 @@ export function TaskRow({ task }: { task: TaskRowData }) {
         </TooltipTrigger>
         <TooltipContent>Excluir tarefa</TooltipContent>
       </Tooltip>
+
+      <EditTaskDialog taskId={task.id} open={editOpen} onOpenChange={setEditOpen} projects={projects} />
     </div>
   );
 }

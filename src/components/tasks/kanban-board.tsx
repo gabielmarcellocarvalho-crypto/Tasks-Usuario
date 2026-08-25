@@ -24,12 +24,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { GripVertical, MoreHorizontal, Trash2 } from "lucide-react";
+import { GripVertical, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/format";
 import { PRIORITY_META, STATUS_COLUMNS, STATUS_META } from "@/lib/task-meta";
 import type { TaskPriority, TaskStatus } from "@/generated/prisma/client";
 import { updateTaskStatus, deleteTask } from "@/app/(app)/tarefas/actions";
+import { EditTaskDialog } from "@/components/tasks/edit-task-dialog";
 
 type KanbanTask = {
   id: string;
@@ -40,7 +41,13 @@ type KanbanTask = {
   dueDate?: string | null;
 };
 
-export function KanbanBoard({ tasks: initialTasks }: { tasks: KanbanTask[] }) {
+export function KanbanBoard({
+  tasks: initialTasks,
+  projects = [],
+}: {
+  tasks: KanbanTask[];
+  projects?: { id: string; name: string }[];
+}) {
   const [tasks, setTasks] = useState(initialTasks);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -99,12 +106,13 @@ export function KanbanBoard({ tasks: initialTasks }: { tasks: KanbanTask[] }) {
             tasks={tasks.filter((t) => t.status === status)}
             onMove={moveTask}
             onDelete={removeTask}
+            projects={projects}
           />
         ))}
       </div>
       <DragOverlay>
         {activeTask ? (
-          <KanbanCard task={activeTask} onMove={moveTask} onDelete={removeTask} overlay />
+          <KanbanCard task={activeTask} onMove={moveTask} onDelete={removeTask} projects={projects} overlay />
         ) : null}
       </DragOverlay>
     </DndContext>
@@ -116,11 +124,13 @@ function KanbanColumn({
   tasks,
   onMove,
   onDelete,
+  projects,
 }: {
   status: TaskStatus;
   tasks: KanbanTask[];
   onMove: (taskId: string, status: TaskStatus) => void;
   onDelete: (taskId: string) => void;
+  projects: { id: string; name: string }[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
 
@@ -138,7 +148,7 @@ function KanbanColumn({
       </div>
       <div className="flex flex-col gap-2">
         {tasks.map((task) => (
-          <KanbanCard key={task.id} task={task} onMove={onMove} onDelete={onDelete} />
+          <KanbanCard key={task.id} task={task} onMove={onMove} onDelete={onDelete} projects={projects} />
         ))}
         {tasks.length === 0 ? (
           <div className="rounded-md border border-dashed border-border/60 px-2 py-4 text-center text-xs text-muted-foreground">
@@ -154,14 +164,17 @@ function KanbanCard({
   task,
   onMove,
   onDelete,
+  projects,
   overlay = false,
 }: {
   task: KanbanTask;
   onMove: (taskId: string, status: TaskStatus) => void;
   onDelete: (taskId: string) => void;
+  projects: { id: string; name: string }[];
   overlay?: boolean;
 }) {
   const priority = PRIORITY_META[task.priority];
+  const [editOpen, setEditOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
   });
@@ -213,6 +226,10 @@ function KanbanCard({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>
+              <Pencil className="size-3.5" />
+              Editar tarefa
+            </DropdownMenuItem>
             <DropdownMenuItem variant="destructive" onClick={() => onDelete(task.id)}>
               <Trash2 className="size-3.5" />
               Excluir tarefa
@@ -230,6 +247,9 @@ function KanbanCard({
       </div>
       {task.projectName ? (
         <span className="truncate text-[11px] text-muted-foreground">{task.projectName}</span>
+      ) : null}
+      {!overlay ? (
+        <EditTaskDialog taskId={task.id} open={editOpen} onOpenChange={setEditOpen} projects={projects} />
       ) : null}
     </div>
   );

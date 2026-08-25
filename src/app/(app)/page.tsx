@@ -27,6 +27,7 @@ export default async function DashboardPage() {
     todayEntries,
     myDayTasks,
     alerts,
+    projects,
   ] = await Promise.all([
     db.task.count({ where: { status: { not: "DONE" }, dueDate: { lt: todayStart } } }),
     db.task.count({
@@ -56,6 +57,11 @@ export default async function DashboardPage() {
       },
     }),
     getCriticalAlerts(),
+    db.project.findMany({
+      where: { status: { not: "ARCHIVED" } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
 
   const secondsToday = todayEntries.reduce((sum, entry) => {
@@ -124,7 +130,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="flex flex-col gap-2">
               {myDay.map((task) => (
-                <TaskRow key={task.id} task={task} />
+                <TaskRow key={task.id} task={task} projects={projects} />
               ))}
             </div>
           )}
