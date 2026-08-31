@@ -155,7 +155,7 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
       </button>
 
       <Dialog open={open} onOpenChange={closeDialog}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           {editing && codeStatus === "ready" ? (
             <>
               <DialogHeader>
@@ -277,9 +277,9 @@ function ComponentViewer({
       </DialogHeader>
 
       {component.previewUrl ? (
-        <div className="overflow-hidden rounded-md border border-border">
+        <div className="overflow-hidden rounded-md border border-border bg-muted/30">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={component.previewUrl} alt="" className="max-h-64 w-full object-cover" />
+          <img src={component.previewUrl} alt="" className="max-h-64 w-full object-contain" />
         </div>
       ) : null}
 
@@ -318,11 +318,24 @@ function ComponentViewer({
         <div className="h-32 animate-pulse rounded-md border border-border bg-muted/40" />
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="relative">
-            <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs">
-              <code>{shown}</code>
-            </pre>
-            <div className="absolute right-2 top-2 flex gap-1.5">
+          {/* A toolbar above the block rather than buttons floating over it —
+              overlaid controls sat on top of the first lines of code. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="font-numeric">
+                {lines.length} linhas · {(code?.length ?? 0).toLocaleString("pt-BR")} caracteres
+              </span>
+              {truncated ? (
+                <button
+                  type="button"
+                  className="underline underline-offset-2 hover:text-foreground"
+                  onClick={() => setExpanded(true)}
+                >
+                  mostrando as primeiras {PREVIEW_LINES} — mostrar tudo
+                </button>
+              ) : null}
+            </div>
+            <div className="flex gap-1.5">
               <Button size="sm" variant="secondary" className="gap-1.5" onClick={copyCode}>
                 {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
                 {copied ? "Copiado" : "Copiar"}
@@ -333,20 +346,9 @@ function ComponentViewer({
               </Button>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-            <span className="font-numeric">
-              {lines.length} linhas · {(code?.length ?? 0).toLocaleString("pt-BR")} caracteres
-            </span>
-            {truncated ? (
-              <button
-                type="button"
-                className="underline underline-offset-2 hover:text-foreground"
-                onClick={() => setExpanded(true)}
-              >
-                mostrando as primeiras {PREVIEW_LINES} — mostrar tudo
-              </button>
-            ) : null}
-          </div>
+          <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs">
+            <code>{shown}</code>
+          </pre>
         </div>
       )}
 
