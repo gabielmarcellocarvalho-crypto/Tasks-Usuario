@@ -19,7 +19,13 @@ export default async function BibliotecaPage({
     },
     orderBy: [{ favorite: "desc" }, { createdAt: "desc" }],
     include: {
-      versions: { where: { isCurrent: true }, take: 1 },
+      // Deliberately without `code`: the grid only needs to know a version
+      // exists. The code itself is loaded per card, on open.
+      versions: {
+        where: { isCurrent: true },
+        take: 1,
+        select: { version: true, language: true },
+      },
       _count: { select: { usages: true } },
     },
   });
@@ -72,7 +78,7 @@ export default async function BibliotecaPage({
                 origin: component.origin,
                 originUrl: component.originUrl,
                 previewUrl: component.previewUrl,
-                code: component.versions[0]?.code,
+                hasCode: component.versions.length > 0,
                 language: component.versions[0]?.language,
                 version: component.versions[0]?.version,
                 usageCount: component._count.usages,

@@ -16,11 +16,18 @@ import { ComponentFormFields } from "@/components/library/component-form-fields"
 export function CreateComponentDialog() {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   function handleSubmit(formData: FormData) {
+    setError(null);
     startTransition(async () => {
-      await createComponent(formData);
+      // Keep the dialog open on failure so a long paste is never lost.
+      const result = await createComponent(formData);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
       formRef.current?.reset();
       setOpen(false);
     });
@@ -42,6 +49,11 @@ export function CreateComponentDialog() {
           className="flex max-h-[70vh] flex-col gap-3 overflow-y-auto pr-1"
         >
           <ComponentFormFields idPrefix="cm-new" codeLabel="Código (versão 1.0)" />
+          {error ? (
+            <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {error}
+            </p>
+          ) : null}
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               {pending ? "Salvando…" : "Salvar componente"}

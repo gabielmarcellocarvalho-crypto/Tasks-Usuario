@@ -57,6 +57,7 @@ export function ComponentFormFields({
 }) {
   const id = (suffix: string) => `${idPrefix}-${suffix}`;
   const [preview, setPreview] = useState<string | undefined>(defaults.previewUrl);
+  const [codeChars, setCodeChars] = useState(defaults.code?.length ?? 0);
 
   return (
     <>
@@ -176,17 +177,34 @@ export function ComponentFormFields({
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={id("code")}>{codeLabel}</Label>
+        <div className="flex items-baseline justify-between gap-2">
+          <Label htmlFor={id("code")}>{codeLabel}</Label>
+          <span className="font-numeric text-[11px] text-muted-foreground">
+            {formatSize(codeChars)}
+          </span>
+        </div>
         <Textarea
           id={id("code")}
           name="code"
-          rows={8}
-          className="font-mono text-xs"
+          rows={12}
+          spellCheck={false}
+          wrap="off"
+          // `field-sizing-content` (the Textarea default) grows the box to fit
+          // its content — pasting a long file made it thousands of lines tall
+          // and froze the dialog. Long code scrolls inside a fixed box instead.
+          className="max-h-[45vh] resize-y overflow-auto font-mono text-xs field-sizing-fixed"
           placeholder="Cole o código aqui…"
           defaultValue={defaults.code}
+          onChange={(e) => setCodeChars(e.target.value.length)}
         />
         {codeHelp ? <p className="text-xs text-muted-foreground">{codeHelp}</p> : null}
       </div>
     </>
   );
+}
+
+function formatSize(chars: number): string {
+  if (chars === 0) return "vazio";
+  if (chars < 1000) return `${chars} caracteres`;
+  return `${(chars / 1000).toFixed(chars < 10_000 ? 1 : 0)}k caracteres`;
 }

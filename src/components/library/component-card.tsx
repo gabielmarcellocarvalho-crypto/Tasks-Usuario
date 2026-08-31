@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Star, Copy, Check, Trash2, Pencil } from "lucide-react";
+import { Star, Copy, Check, Trash2, Pencil, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { toggleFavorite, deleteComponent, updateComponent } from "@/app/(app)/biblioteca/actions";
+import {
+  toggleFavorite,
+  deleteComponent,
+  updateComponent,
+  getComponentCode,
+} from "@/app/(app)/biblioteca/actions";
 import { ComponentFormFields } from "@/components/library/component-form-fields";
 
 export type ComponentDTO = {
@@ -27,7 +32,8 @@ export type ComponentDTO = {
   favorite: boolean;
   origin?: string | null;
   originUrl?: string | null;
-  code?: string | null;
+  /** The code itself is fetched on open — see `getComponentCode`. */
+  hasCode: boolean;
   language?: string | null;
   version?: string | null;
   previewUrl?: string | null;
@@ -45,16 +51,46 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
   const [favorite, setFavorite] = useState(component.favorite);
+  const [code, setCode] = useState<string | null>(null);
+  const [codeStatus, setCodeStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    component.hasCode ? "idle" : "ready",
+  );
+  const [saveError, setSaveError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Fetched on open rather than shipped with the grid, so a library full of
+  // long files costs nothing until a card is actually looked at.
+  function openDialog() {
+    setOpen(true);
+    if (!component.hasCode || codeStatus !== "idle") return;
+    setCodeStatus("loading");
+    getComponentCode(component.id)
+      .then((version) => {
+        setCode(version?.code ?? "");
+        setCodeStatus("ready");
+      })
+      .catch(() => setCodeStatus("error"));
+  }
 
   function closeDialog(next: boolean) {
     setOpen(next);
-    if (!next) setEditing(false);
+    if (!next) {
+      setEditing(false);
+      setSaveError(null);
+    }
   }
 
   function handleSave(formData: FormData) {
+    setSaveError(null);
     startTransition(async () => {
-      await updateComponent(formData);
+      const result = await updateComponent(formData);
+      if (!result.ok) {
+        setSaveError(result.error);
+        return;
+      }
+      // The saved code is now the current version; keep the viewer in sync
+      // without another round trip.
+      setCode((formData.get("code") as string | null) ?? "");
       setEditing(false);
     });
   }
@@ -62,7 +98,7 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
   return (
     <>
       <button
-        onClick={() => setOpen(true)}
+        onClick={openDialog}
         className="flex flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-card text-left transition-colors hover:border-border/80"
       >
         <div className="flex aspect-video items-center justify-center border-b border-border bg-muted/30">
@@ -120,7 +156,7 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
 
       <Dialog open={open} onOpenChange={closeDialog}>
         <DialogContent className="sm:max-w-2xl">
-          {editing ? (
+          {editing && codeStatus === "ready" ? (
             <>
               <DialogHeader>
                 <DialogTitle>Editar componente</DialogTitle>
@@ -145,10 +181,15 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
                     origin: component.origin ?? undefined,
                     originUrl: component.originUrl ?? undefined,
                     language: component.language ?? undefined,
-                    code: component.code ?? undefined,
+                    code: code ?? undefined,
                     previewUrl: component.previewUrl ?? undefined,
                   }}
                 />
+                {saveError ? (
+                  <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                    {saveError}
+                  </p>
+                ) : null}
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setEditing(false)}>
                     Cancelar
@@ -162,6 +203,8 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
           ) : (
             <ComponentViewer
               component={component}
+              code={code}
+              codeStatus={codeStatus}
               pending={pending}
               onEdit={() => setEditing(true)}
               onDelete={() =>
@@ -178,24 +221,50 @@ export function ComponentCard({ component }: { component: ComponentDTO }) {
   );
 }
 
+/**
+ * Rendering a very long file as one <pre> blocks the main thread while the
+ * browser lays out every line. Only the first slice is painted; the rest is
+ * one click away, and copy/download always take the whole thing.
+ */
+const PREVIEW_LINES = 400;
+
 function ComponentViewer({
   component,
+  code,
+  codeStatus,
   pending,
   onEdit,
   onDelete,
 }: {
   component: ComponentDTO;
+  code: string | null;
+  codeStatus: "idle" | "loading" | "ready" | "error";
   pending: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  const lines = code ? code.split("\n") : [];
+  const truncated = !expanded && lines.length > PREVIEW_LINES;
+  const shown = truncated ? lines.slice(0, PREVIEW_LINES).join("\n") : code;
 
   async function copyCode() {
-    if (!component.code) return;
-    await navigator.clipboard.writeText(component.code);
+    if (!code) return;
+    await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function downloadCode() {
+    if (!code) return;
+    const url = URL.createObjectURL(new Blob([code], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${component.name.replace(/[^\w.-]+/g, "-")}.${component.language || "txt"}`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -241,27 +310,54 @@ function ComponentViewer({
         </div>
       ) : null}
 
-      {component.code ? (
-        <div className="relative">
-          <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs">
-            <code>{component.code}</code>
-          </pre>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="absolute right-2 top-2 gap-1.5"
-            onClick={copyCode}
-          >
-            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-            {copied ? "Copiado" : "Copiar"}
-          </Button>
-        </div>
-      ) : (
+      {!component.hasCode ? (
         <p className="text-sm text-muted-foreground">Nenhum código salvo para este item.</p>
+      ) : codeStatus === "error" ? (
+        <p className="text-sm text-destructive">Não foi possível carregar o código.</p>
+      ) : codeStatus !== "ready" ? (
+        <div className="h-32 animate-pulse rounded-md border border-border bg-muted/40" />
+      ) : (
+        <div className="flex flex-col gap-2">
+          <div className="relative">
+            <pre className="max-h-80 overflow-auto rounded-md border border-border bg-muted/40 p-3 text-xs">
+              <code>{shown}</code>
+            </pre>
+            <div className="absolute right-2 top-2 flex gap-1.5">
+              <Button size="sm" variant="secondary" className="gap-1.5" onClick={copyCode}>
+                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                {copied ? "Copiado" : "Copiar"}
+              </Button>
+              <Button size="sm" variant="secondary" className="gap-1.5" onClick={downloadCode}>
+                <Download className="size-3.5" />
+                Baixar
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="font-numeric">
+              {lines.length} linhas · {(code?.length ?? 0).toLocaleString("pt-BR")} caracteres
+            </span>
+            {truncated ? (
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
+                onClick={() => setExpanded(true)}
+              >
+                mostrando as primeiras {PREVIEW_LINES} — mostrar tudo
+              </button>
+            ) : null}
+          </div>
+        </div>
       )}
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" className="gap-1.5" onClick={onEdit}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          disabled={codeStatus === "loading"}
+          onClick={onEdit}
+        >
           <Pencil className="size-3.5" />
           Editar
         </Button>
